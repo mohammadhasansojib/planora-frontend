@@ -8,6 +8,11 @@ export type RegisterRequest = {
   password: string;
 };
 
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
 export type RegisteredUser = {
   id: string;
   username: string;
@@ -18,17 +23,22 @@ export type RegisteredUser = {
 
 type RegisterResponse = {
   success: true;
-  message: string;
-  statusCode: number;
   data: {
     user: RegisteredUser;
   };
 };
 
-export class RegistrationError extends Error {
+type LoginResponse = {
+  success: true;
+  data: {
+    accessToken: string;
+  };
+};
+
+export class AuthApiError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "RegistrationError";
+    this.name = "AuthApiError";
   }
 }
 
@@ -68,13 +78,29 @@ function isRegisterResponse(payload: unknown): payload is RegisterResponse {
   );
 }
 
-export async function registerUser(
-  request: RegisterRequest,
-): Promise<RegisteredUser> {
+function isLoginResponse(payload: unknown): payload is LoginResponse {
+  if (!isRecord(payload) || payload.success !== true) {
+    return false;
+  }
+
+  const data = payload.data;
+  return (
+    isRecord(data) &&
+    typeof data.accessToken === "string" &&
+    data.accessToken.length > 0
+  );
+}
+
+async function postAuthJson<T>(
+  endpoint: string,
+  request: RegisterRequest | LoginRequest,
+  isExpectedResponse: (payload: unknown) => payload is T,
+  operation: string,
+): Promise<T> {
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}/auth/register`, {
+    response = await fetch(`${API_BASE_URL}/auth/${endpoint}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -82,7 +108,7 @@ export async function registerUser(
       body: JSON.stringify(request),
     });
   } catch {
-    throw new RegistrationError(
+    throw new AuthApiError(
       "Could not connect to the server. Check your connection and try again.",
     );
   }
@@ -91,24 +117,46 @@ export async function registerUser(
   try {
     payload = await response.json();
   } catch {
-    throw new RegistrationError(
+    throw new AuthApiError(
       "The server returned an unreadable response. Please try again later.",
     );
   }
 
   if (!response.ok) {
-    throw new RegistrationError(
+    throw new AuthApiError(
       getMessage(payload) ??
-        `Registration failed (HTTP ${response.status}). Please try again.`,
+        `${operation} failed (HTTP ${response.status}). Please try again.`,
     );
   }
 
-  if (!isRegisterResponse(payload)) {
-    throw new RegistrationError(
+  if (!isExpectedResponse(payload)) {
+    throw new AuthApiError(
       getMessage(payload) ??
-        "The server returned an unexpected registration response.",
+        `The server returned an unexpected ${operation.toLowerCase()} response.`,
     );
   }
 
+  return payload;
+}
+
+export async function registerUser(
+  request: RegisterRequest,
+): Promise<RegisteredUser> {
+  const payload = await postAuthJson(
+    "register",
+    request,
+    isRegisterResponse,
+    "Registration",
+  );
   return payload.data.user;
+}
+
+export async function loginUser(request: LoginRequest): Promise<string> {
+  const payload = await postAuthJson(
+    "login",
+    request,
+    isLoginResponse,
+    "Login",
+  );
+  return payload.data.accessToken;
 }

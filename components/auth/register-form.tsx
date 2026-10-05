@@ -4,7 +4,7 @@ import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { RegistrationError, registerUser } from "@/lib/api/auth";
+import { AuthApiError, registerUser } from "@/lib/api/auth";
 
 const inputClassName =
   "h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition-shadow placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60";
@@ -38,7 +38,7 @@ export function RegisterForm() {
       setUsername(user.username);
     } catch (submissionError) {
       setError(
-        submissionError instanceof RegistrationError
+        submissionError instanceof AuthApiError
           ? submissionError.message
           : "Registration could not be completed. Please try again.",
       );

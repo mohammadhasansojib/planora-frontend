@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { RegisterForm } from "@/components/auth/register-form";
+import { LoginForm } from "@/components/auth/login-form";
 
 export const metadata: Metadata = {
-  title: "Create account",
+  title: "Log in",
 };
 
-export default function RegisterPage() {
+export default function LoginPage() {
   return (
     <div className="w-full max-w-md">
       <Link
@@ -21,20 +21,20 @@ export default function RegisterPage() {
       <section className="rounded-xl border bg-card p-6 shadow-sm sm:p-8">
         <div className="mb-6 space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Create your account
+            Welcome back
           </h1>
           <p className="text-sm text-muted-foreground">
-            Sign up to start organizing your work with Planora.
+            Log in to continue to your Planora workspace.
           </p>
         </div>
-        <RegisterForm />
+        <LoginForm />
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
-            href="/login"
+            href="/register"
             className="font-medium text-primary underline-offset-4 hover:underline"
           >
-            Log in
+            Create account
           </Link>
         </p>
       </section>
