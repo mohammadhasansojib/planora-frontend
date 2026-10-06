@@ -110,10 +110,16 @@ auth: false
   "message": "login successful",
   "statusCode": 200,
   "data": {
-    "accessToken": "access_token_here"
+    "accessToken": "access_token_here",
+    "refreshToken": "refresh_token_here"
   }
 }
 ```
+
+The backend sets `accessToken` and `refreshToken` as HttpOnly cookies. The
+access cookie lasts 24 hours and the refresh cookie lasts 7 days. Frontend
+requests that need these cookies must use `credentials: "include"`. Frontend
+JavaScript must not read or persist token values.
 
 ---
 
@@ -133,11 +139,8 @@ auth: false
 
 ### Request Body
 
-```json
-{
-  "refreshToken": "refresh_token_here"
-}
-```
+No request body is required. The backend reads the `refreshToken` HttpOnly
+cookie.
 
 ### Response
 
@@ -152,9 +155,52 @@ auth: false
 }
 ```
 
+The backend sets the renewed `accessToken` HttpOnly cookie. The frontend must
+send this request with `credentials: "include"` and must not read or persist
+the token returned in the response body.
+
 ---
 
-## 2.4 Google Authentication
+## 2.4 Logout
+
+**POST**
+
+```text
+/auth/logout
+```
+
+### Authentication
+
+```text
+auth: true
+```
+
+### Request Body
+
+No request body is required. The backend authenticates using the
+`accessToken` HttpOnly cookie and clears both authentication cookies.
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "user logout successfully",
+  "statusCode": 200,
+  "data": {
+    "user": {
+      "id": "acc950d1-32d4-4764-adaf-5a311f022acd",
+      "email": "hasan@mail.com"
+    }
+  }
+}
+```
+
+The frontend must send this request with `credentials: "include"`.
+
+---
+
+## 2.5 Google Authentication
 
 **POST**
 
@@ -1018,6 +1064,7 @@ The exact frontend redirect URL is not defined in the current API documentation.
 | Auth                | POST   | `/auth/register`                         | No   |
 | Auth                | POST   | `/auth/login`                            | No   |
 | Auth                | POST   | `/auth/refresh-token`                    | No   |
+| Auth                | POST   | `/auth/logout`                           | Yes  |
 | Auth                | POST   | `/auth/google`                           | No   |
 | Organization        | POST   | `/organizations`                         | Yes  |
 | Organization        | GET    | `/organizations`                         | Yes  |
@@ -1074,12 +1121,19 @@ The frontend authentication implementation should be based on the actual backend
 
 The current API documentation explicitly exposes:
 
-* Access token on login.
-* Refresh-token endpoint.
-* New access token from refresh.
-* Google authentication returning access and refresh tokens.
+* Login sets HttpOnly access and refresh cookies.
+* Refresh reads the HttpOnly refresh cookie and renews the access cookie.
+* Logout clears both authentication cookies.
+* Google authentication returns access and refresh tokens and sets cookies.
 
-The exact cookie/storage strategy is a frontend implementation decision and should be finalized during the authentication phase.
+Protected frontend API requests must include credentials. When a protected
+request returns HTTP 401, the frontend may refresh once using the refresh
+cookie and retry the original request. The frontend must not read or persist
+either token.
+
+The backend does not currently document a current-user/session-check endpoint.
+Strict route guarding and user identity display require such an endpoint or an
+equivalent explicit API contract.
 
 ### Pagination
 
