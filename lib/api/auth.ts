@@ -1,3 +1,5 @@
+import { apiRequest } from "@/lib/api/client";
+
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:5000/api/v1"
 ).replace(/\/+$/, "");
@@ -30,9 +32,7 @@ type RegisterResponse = {
 
 type LoginResponse = {
   success: true;
-  data: {
-    accessToken: string;
-  };
+  data: Record<string, unknown>;
 };
 
 export class AuthApiError extends Error {
@@ -79,15 +79,8 @@ function isRegisterResponse(payload: unknown): payload is RegisterResponse {
 }
 
 function isLoginResponse(payload: unknown): payload is LoginResponse {
-  if (!isRecord(payload) || payload.success !== true) {
-    return false;
-  }
-
-  const data = payload.data;
   return (
-    isRecord(data) &&
-    typeof data.accessToken === "string" &&
-    data.accessToken.length > 0
+    isRecord(payload) && payload.success === true && isRecord(payload.data)
   );
 }
 
@@ -102,6 +95,7 @@ async function postAuthJson<T>(
   try {
     response = await fetch(`${API_BASE_URL}/auth/${endpoint}`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
@@ -151,12 +145,34 @@ export async function registerUser(
   return payload.data.user;
 }
 
-export async function loginUser(request: LoginRequest): Promise<string> {
-  const payload = await postAuthJson(
-    "login",
-    request,
-    isLoginResponse,
-    "Login",
-  );
-  return payload.data.accessToken;
+export async function loginUser(request: LoginRequest): Promise<void> {
+  await postAuthJson("login", request, isLoginResponse, "Login");
+}
+
+export async function logoutUser(): Promise<void> {
+  let response: Response;
+  try {
+    response = await apiRequest("/auth/logout", { method: "POST" });
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new AuthApiError(error.message);
+    }
+    throw new AuthApiError("Logout could not be completed. Please try again.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new AuthApiError(
+      "The server returned an unreadable logout response. Please try again.",
+    );
+  }
+
+  if (!response.ok || !isRecord(payload) || payload.success !== true) {
+    throw new AuthApiError(
+      getMessage(payload) ??
+        `Logout failed (HTTP ${response.status}). Please try again.`,
+    );
+  }
 }

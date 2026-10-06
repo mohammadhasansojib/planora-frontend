@@ -4,6 +4,7 @@ import { Menu, Moon, Sun, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { Button } from "@/components/ui/button";
 import { dashboardNavigation } from "./dashboard-navigation";
 
@@ -52,6 +53,7 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-2">
+        <LogoutButton />
         <Button
           type="button"
           variant="ghost"
