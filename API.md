@@ -336,9 +336,12 @@ auth: true
 
 ```json
 {
-  "userId": "user-id"
+  "email": "member@example.com"
 }
 ```
+
+The email must belong to an existing user. The API also continues to accept
+`userId` for callers that already have the user's ID.
 
 ### Response
 
