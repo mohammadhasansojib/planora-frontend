@@ -1,12 +1,14 @@
 "use client";
 
 import { Building2, Check, Plus, RefreshCw, UsersRound } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import {
   addOrganizationMember,
+  getOrganizationMembers,
   type OrganizationMember,
+  type OrganizationMemberWithUser,
 } from "@/lib/api/organizations";
 import { useOrganizations } from "./organization-provider";
 
@@ -28,6 +30,11 @@ export function OrganizationManagement() {
   const [createdOrganizationName, setCreatedOrganizationName] = useState<
     string | null
   >(null);
+  const [membersRefreshKey, setMembersRefreshKey] = useState(0);
+
+  function refreshMembers() {
+    setMembersRefreshKey((currentKey) => currentKey + 1);
+  }
 
   async function handleCreateOrganization(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -204,9 +211,14 @@ export function OrganizationManagement() {
         </section>
       </div>
 
+      <OrganizationMembersList
+        key={`${selectedOrganization?.id ?? "no-organization"}-${membersRefreshKey}`}
+        organization={selectedOrganization}
+      />
       <AddOrganizationMember
         key={selectedOrganization?.id ?? "no-organization"}
         organization={selectedOrganization}
+        onMemberAdded={refreshMembers}
       />
     </div>
   );
@@ -214,8 +226,10 @@ export function OrganizationManagement() {
 
 function AddOrganizationMember({
   organization,
+  onMemberAdded,
 }: {
   organization: { id: string; name: string } | null;
+  onMemberAdded: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -247,6 +261,7 @@ function AddOrganizationMember({
       const member = await addOrganizationMember(organization.id, email);
       setAddedMember({ member, email });
       form.reset();
+      onMemberAdded();
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
@@ -326,6 +341,177 @@ function AddOrganizationMember({
         <output className="mt-4 text-sm text-primary">
           {addedMember.email} was added to {organization?.name}.
         </output>
+      ) : null}
+    </section>
+  );
+}
+
+function OrganizationMembersList({
+  organization,
+}: {
+  organization: { id: string; name: string } | null;
+}) {
+  const [retryKey, setRetryKey] = useState(0);
+
+  return (
+    <OrganizationMembersListContent
+      key={retryKey}
+      organization={organization}
+      onRetry={() => setRetryKey((currentKey) => currentKey + 1)}
+    />
+  );
+}
+
+function OrganizationMembersListContent({
+  organization,
+  onRetry,
+}: {
+  organization: { id: string; name: string } | null;
+  onRetry: () => void;
+}) {
+  const [members, setMembers] = useState<OrganizationMemberWithUser[]>([]);
+  const [isLoading, setIsLoading] = useState(Boolean(organization));
+  const [error, setError] = useState<string | null>(null);
+  const organizationId = organization?.id ?? null;
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (!organizationId) {
+      setMembers([]);
+      setError(null);
+      setIsLoading(false);
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    setMembers([]);
+    setError(null);
+    setIsLoading(true);
+
+    getOrganizationMembers(organizationId)
+      .then((nextMembers) => {
+        if (isCurrent) {
+          setMembers(nextMembers);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (isCurrent) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Organization members could not be loaded. Please try again.",
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [organizationId]);
+
+  return (
+    <section
+      aria-labelledby="organization-member-list-heading"
+      className="rounded-xl border bg-card p-5 sm:p-6"
+      aria-busy={isLoading}
+    >
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <UsersRound aria-hidden="true" className="size-5" />
+          </span>
+          <div>
+            <h2
+              id="organization-member-list-heading"
+              className="font-semibold tracking-tight"
+            >
+              Organization members
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {organization
+                ? `People in ${organization.name}.`
+                : "Create or select an organization to view its members."}
+            </p>
+          </div>
+        </div>
+        {organization ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            onClick={onRetry}
+          >
+            <RefreshCw aria-hidden="true" />
+            Refresh
+          </Button>
+        ) : null}
+      </div>
+
+      {isLoading ? (
+        <output className="text-sm text-muted-foreground">
+          Loading members...
+        </output>
+      ) : null}
+
+      {error ? (
+        <div
+          role="alert"
+          className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p>{error}</p>
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            <RefreshCw aria-hidden="true" />
+            Retry
+          </Button>
+        </div>
+      ) : null}
+
+      {!isLoading && !error && organization && members.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+          This organization does not have any members yet.
+        </p>
+      ) : null}
+
+      {!isLoading && !error && members.length > 0 ? (
+        <ul className="divide-y">
+          {members.map((member) => (
+            <li
+              key={member.id}
+              className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">
+                  {member.user.username}
+                </p>
+                <p className="truncate text-sm text-muted-foreground">
+                  {member.user.email}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
+                  {member.role}
+                </span>
+                <time
+                  dateTime={member.createdAt}
+                  className="text-xs text-muted-foreground"
+                >
+                  Joined{" "}
+                  {new Date(member.createdAt).toLocaleDateString("en-US", {
+                    timeZone: "UTC",
+                  })}
+                </time>
+              </div>
+            </li>
+          ))}
+        </ul>
       ) : null}
     </section>
   );

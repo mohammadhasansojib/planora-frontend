@@ -16,6 +16,13 @@ export type OrganizationMember = {
   updatedAt: string;
 };
 
+export type OrganizationMemberWithUser = OrganizationMember & {
+  user: {
+    username: string;
+    email: string;
+  };
+};
+
 export class OrganizationApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -46,6 +53,21 @@ function isOrganizationMember(value: unknown): value is OrganizationMember {
     typeof value.role === "string" &&
     typeof value.createdAt === "string" &&
     typeof value.updatedAt === "string"
+  );
+}
+
+function isOrganizationMemberWithUser(
+  value: unknown,
+): value is OrganizationMemberWithUser {
+  if (!isRecord(value) || !isRecord(value.user)) {
+    return false;
+  }
+
+  const user = value.user;
+  return (
+    isOrganizationMember(value) &&
+    typeof user.username === "string" &&
+    typeof user.email === "string"
   );
 }
 
@@ -162,4 +184,27 @@ export async function addOrganizationMember(
   }
 
   return data.member;
+}
+
+export async function getOrganizationMembers(
+  organizationId: string,
+): Promise<OrganizationMemberWithUser[]> {
+  const payload = await requestPayload(
+    `/organizations/${encodeURIComponent(organizationId)}/members`,
+    { method: "GET" },
+    "Organization member loading",
+  );
+  const data = payload.data;
+
+  if (
+    !isRecord(data) ||
+    !Array.isArray(data.members) ||
+    !data.members.every(isOrganizationMemberWithUser)
+  ) {
+    throw new OrganizationApiError(
+      "The server returned an unexpected organization member list.",
+    );
+  }
+
+  return data.members;
 }

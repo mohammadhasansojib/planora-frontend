@@ -363,6 +363,41 @@ The email must belong to an existing user. The API also continues to accept
 }
 ```
 
+### List Organization Members
+
+**GET**
+
+```text
+/organizations/:organizationId/members
+```
+
+Only authenticated users who belong to the requested organization may list its
+members. Each result includes the member's role, join date, username, and email.
+
+```json
+{
+  "success": true,
+  "message": "Organization members retrieved successfully",
+  "statusCode": 200,
+  "data": {
+    "members": [
+      {
+        "id": "member-id",
+        "organizationId": "organization-id",
+        "userId": "user-id",
+        "role": "MEMBER",
+        "createdAt": "2026-09-05T05:06:33.345Z",
+        "updatedAt": "2026-09-05T05:06:33.345Z",
+        "user": {
+          "username": "Hasan",
+          "email": "member@example.com"
+        }
+      }
+    ]
+  }
+}
+```
+
 ---
 
 # 4. Teams
