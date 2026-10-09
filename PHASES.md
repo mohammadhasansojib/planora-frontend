@@ -193,6 +193,7 @@ Implement team management.
 ```text
 POST /teams
 POST /teams/:teamId/members
+GET /teams/:teamId/members
 GET /teams
 ```
 
@@ -205,6 +206,7 @@ GET /teams
 * Connect team creation API.
 * Build team member interface.
 * Add team member form.
+* Display the team's current member roster.
 * Handle API states.
 * Connect organization context where required.
 

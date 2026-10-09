@@ -425,6 +425,8 @@ auth: true
 }
 ```
 
+The signed-in user must belong to the specified organization.
+
 ### Response
 
 ```json
@@ -469,6 +471,9 @@ auth: true
 }
 ```
 
+The signed-in user and the selected user must both belong to the team's
+organization. Supported roles are `MEMBER` and `MANAGER`.
+
 ### Response
 
 ```json
@@ -511,11 +516,12 @@ auth: true
 | --------- | ------------------------ |
 | `page`    | Page number              |
 | `limit`   | Number of teams per page |
+| `organizationId` | Optional organization filter; the signed-in user must belong to it |
 
 Example:
 
 ```text
-/teams?page=1&limit=10
+/teams?page=1&limit=10&organizationId=organization-id
 ```
 
 ### Response
@@ -523,8 +529,8 @@ Example:
 ```json
 {
   "success": true,
-  "message": "Retrived all teams successfully",
-  "statusCode": 201,
+  "message": "Retrieved all teams successfully",
+  "statusCode": 200,
   "data": {
     "teams": [
       {
@@ -534,10 +540,30 @@ Example:
         "createdAt": "2026-09-05T09:32:02.137Z",
         "updatedAt": "2026-09-05T09:32:02.137Z"
       }
-    ]
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 1,
+      "totalPages": 1
+    }
   }
 }
 ```
+
+---
+
+## 4.4 Get Team Members
+
+**GET**
+
+```text
+/teams/:teamId/members
+```
+
+The signed-in user must belong to the team's organization. The response
+contains each member's role, join date, username, and email. The Teams page
+displays this roster and reloads it after a member is added.
 
 ---
 
@@ -1187,6 +1213,9 @@ The documented query parameters are:
 page
 limit
 ```
+
+`GET /teams` also accepts an optional `organizationId` filter. The teams page
+uses the selected organization and requests 10 teams per page.
 
 Tasks additionally support:
 
