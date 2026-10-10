@@ -21,6 +21,18 @@ export type Subtask = {
   updatedAt: string;
 };
 
+export type TaskComment = {
+  id: string;
+  content: string;
+  userId: string;
+  taskId: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    username: string;
+  };
+};
+
 export type Task = {
   id: string;
   projectId: string;
@@ -87,6 +99,20 @@ function isSubtask(value: unknown): value is Subtask {
     typeof value.taskId === "string" &&
     typeof value.createdAt === "string" &&
     typeof value.updatedAt === "string"
+  );
+}
+
+function isTaskComment(value: unknown): value is TaskComment {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.content === "string" &&
+    typeof value.userId === "string" &&
+    typeof value.taskId === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string" &&
+    isRecord(value.user) &&
+    typeof value.user.username === "string"
   );
 }
 
@@ -293,4 +319,50 @@ export async function createSubtask(input: {
   }
 
   return data.subtask;
+}
+
+export async function getTaskComments(taskId: string): Promise<TaskComment[]> {
+  const query = new URLSearchParams({ taskId });
+  const payload = await requestPayload(
+    `/comments?${query.toString()}`,
+    { method: "GET" },
+    "Comment loading",
+  );
+  const data = payload.data;
+
+  if (
+    !isRecord(data) ||
+    !Array.isArray(data.comments) ||
+    !data.comments.every(isTaskComment)
+  ) {
+    throw new TaskApiError("The server returned an unexpected comment list.");
+  }
+
+  return data.comments;
+}
+
+export async function createTaskComment(input: {
+  taskId: string;
+  content: string;
+}): Promise<TaskComment> {
+  const payload = await requestPayload(
+    "/comments",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+    "Comment creation",
+  );
+  const data = payload.data;
+
+  if (!isRecord(data) || !isTaskComment(data.comment)) {
+    throw new TaskApiError(
+      "The server returned an unexpected comment creation response.",
+    );
+  }
+
+  return data.comment;
 }

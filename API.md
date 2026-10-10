@@ -1276,6 +1276,12 @@ required title (maximum 200 characters) and an optional description (maximum
 2000 characters). Creating a subtask requires membership in the task's
 organization; the response returns the created subtask.
 
+Task comments use `POST /comments` to add a comment and
+`GET /comments?taskId=<task-id>` to list a task's comments in creation order.
+Both operations require membership in the task's organization. Comment content
+is required and limited to 5000 characters; comment responses include the
+author's username.
+
 `GET /teams` also accepts an optional `organizationId` filter. The teams page
 uses the selected organization and requests 10 teams per page.
 

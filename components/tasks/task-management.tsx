@@ -16,10 +16,13 @@ import {
   assignTaskToSprint,
   createSubtask,
   createTask,
+  createTaskComment,
+  getTaskComments,
   getTasks,
   type SortOrder,
   type Subtask,
   type Task,
+  type TaskComment,
   type TaskSortField,
 } from "@/lib/api/tasks";
 
@@ -81,6 +84,9 @@ function TaskManagementForOrganization({
   >({});
   const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [openTaskDetails, setOpenTaskDetails] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const organizationId = organization?.id ?? null;
   const selectedProject = projects.find(
@@ -423,7 +429,21 @@ function TaskManagementForOrganization({
                         </div>
                       </div>
 
-                      <details className="mt-4 border-t pt-3">
+                      <details
+                        className="mt-4 border-t pt-3"
+                        onToggle={(event) => {
+                          const isOpen = event.currentTarget.open;
+                          setOpenTaskDetails((currentIds) => {
+                            const nextIds = new Set(currentIds);
+                            if (isOpen) {
+                              nextIds.add(task.id);
+                            } else {
+                              nextIds.delete(task.id);
+                            }
+                            return nextIds;
+                          });
+                        }}
+                      >
                         <summary className="cursor-pointer text-sm font-medium text-primary">
                           Task details
                         </summary>
@@ -488,6 +508,11 @@ function TaskManagementForOrganization({
                               ),
                             );
                           }}
+                        />
+
+                        <CommentSection
+                          taskId={task.id}
+                          enabled={openTaskDetails.has(task.id)}
                         />
 
                         <div className="mt-4 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-end">
@@ -811,6 +836,169 @@ function SubtaskSection({
           </Button>
         </div>
       </form>
+    </section>
+  );
+}
+
+function CommentSection({
+  taskId,
+  enabled,
+}: {
+  taskId: string;
+  enabled: boolean;
+}) {
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [createdComment, setCreatedComment] = useState(false);
+
+  useEffect(() => {
+    let isCurrent = true;
+    if (!enabled || (hasLoaded && reloadKey === 0)) {
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+    getTaskComments(taskId)
+      .then((loadedComments) => {
+        if (isCurrent) {
+          setComments(loadedComments);
+          setHasLoaded(true);
+          setReloadKey(0);
+        }
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) {
+          setLoadError(
+            errorMessage(error, "Comments could not be loaded. Please retry."),
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [enabled, hasLoaded, reloadKey, taskId]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitError(null);
+    setCreatedComment(false);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const content = String(formData.get("commentContent") ?? "").trim();
+    if (!content) {
+      setSubmitError("Enter a comment.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const comment = await createTaskComment({ taskId, content });
+      setComments((currentComments) => [...currentComments, comment]);
+      setCreatedComment(true);
+      form.reset();
+    } catch (error) {
+      setSubmitError(
+        errorMessage(error, "The comment could not be added. Please retry."),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <section aria-label="Comments" className="mt-4 border-t pt-4">
+      <h4 className="text-sm font-medium">Comments</h4>
+      {!enabled ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Open task details to view comments.
+        </p>
+      ) : isLoading ? (
+        <output className="mt-2 block text-sm text-muted-foreground">
+          Loading comments…
+        </output>
+      ) : loadError ? (
+        <div className="mt-2">
+          <p role="alert" className="text-sm text-destructive">
+            {loadError}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => setReloadKey((key) => key + 1)}
+          >
+            Retry
+          </Button>
+        </div>
+      ) : comments.length > 0 ? (
+        <ol className="mt-3 space-y-3">
+          {comments.map((comment) => (
+            <li key={comment.id} className="rounded-lg bg-muted/50 px-3 py-2.5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="text-sm font-medium">{comment.user.username}</p>
+                <time
+                  dateTime={comment.createdAt}
+                  className="text-xs text-muted-foreground"
+                >
+                  {formatDate(comment.createdAt)}
+                </time>
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-sm">
+                {comment.content}
+              </p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">
+          No comments have been added.
+        </p>
+      )}
+
+      {enabled ? (
+        <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
+          <label className="block space-y-2">
+            <span className="text-xs font-medium">Add a comment</span>
+            <textarea
+              name="commentContent"
+              rows={3}
+              maxLength={5000}
+              required
+              disabled={isSubmitting}
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition-shadow placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          {submitError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {submitError}
+            </p>
+          ) : null}
+          {createdComment ? (
+            <output className="block text-sm text-primary">
+              Comment added successfully.
+            </output>
+          ) : null}
+          <Button type="submit" variant="outline" disabled={isSubmitting}>
+            {isSubmitting ? "Adding comment…" : "Add comment"}
+          </Button>
+        </form>
+      ) : null}
     </section>
   );
 }
