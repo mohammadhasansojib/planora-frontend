@@ -58,6 +58,9 @@ auth: false
 }
 ```
 
+The signed-in user must belong to the organization that owns the project.
+Sprint start time must be before its end time.
+
 ### Response
 
 ```json
@@ -711,7 +714,18 @@ Example:
           "id": "team-id",
           "name": "Design",
           "organizationId": "organization-id"
-        }
+        },
+        "sprints": [
+          {
+            "id": "sprint-id",
+            "name": "My first sprint",
+            "projectId": "project-id",
+            "startTime": "2026-09-05T11:46:07.779Z",
+            "endTime": "2026-09-08T11:46:07.779Z",
+            "createdAt": "2026-09-05T12:05:23.873Z",
+            "updatedAt": "2026-09-05T12:05:23.873Z"
+          }
+        ]
       }
     ],
     "pagination": {

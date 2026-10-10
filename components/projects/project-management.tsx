@@ -12,11 +12,13 @@ import {
 import {
   addProjectMember,
   createProject,
+  createSprint,
   getProjectMembers,
   getProjects,
   type Project,
   type ProjectMemberWithUser,
   type ProjectPagination,
+  type Sprint,
 } from "@/lib/api/projects";
 import { getAllTeamsInOrganization, type Team } from "@/lib/api/teams";
 
@@ -488,6 +490,28 @@ function ProjectManagementContent({
                         )}
                       </p>
                     </div>
+                    <ProjectSprintSection
+                      project={project}
+                      onSprintCreated={(sprint) => {
+                        setProjects((currentProjects) =>
+                          currentProjects.map((currentProject) =>
+                            currentProject.id === project.id
+                              ? {
+                                  ...currentProject,
+                                  sprints: [
+                                    ...currentProject.sprints,
+                                    sprint,
+                                  ].sort(
+                                    (first, second) =>
+                                      Date.parse(first.startTime) -
+                                      Date.parse(second.startTime),
+                                  ),
+                                }
+                              : currentProject,
+                          ),
+                        );
+                      }}
+                    />
                     <ProjectMemberForm
                       project={project}
                       organizationMembers={organizationMembers}
@@ -532,6 +556,174 @@ function ProjectManagementContent({
         </section>
       </div>
     </div>
+  );
+}
+
+function ProjectSprintSection({
+  project,
+  onSprintCreated,
+}: {
+  project: Project;
+  onSprintCreated: (sprint: Sprint) => void;
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [createdSprintName, setCreatedSprintName] = useState<string | null>(
+    null,
+  );
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setCreatedSprintName(null);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const name = String(formData.get("sprintName") ?? "").trim();
+    const startValue = String(formData.get("startTime") ?? "");
+    const endValue = String(formData.get("endTime") ?? "");
+    const startTime = new Date(startValue);
+    const endTime = new Date(endValue);
+
+    if (!name) {
+      setError("Enter a sprint name.");
+      return;
+    }
+    if (
+      !startValue ||
+      !endValue ||
+      Number.isNaN(startTime.getTime()) ||
+      Number.isNaN(endTime.getTime())
+    ) {
+      setError("Enter valid sprint start and end dates.");
+      return;
+    }
+    if (startTime >= endTime) {
+      setError("Sprint start time must be before its end time.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const sprint = await createSprint(
+        name,
+        project.id,
+        startTime.toISOString(),
+        endTime.toISOString(),
+      );
+      onSprintCreated(sprint);
+      setCreatedSprintName(sprint.name);
+      form.reset();
+    } catch (createError) {
+      setError(
+        errorMessage(
+          createError,
+          "The sprint could not be created. Please try again.",
+        ),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <section aria-label={`${project.name} sprints`} className="mb-4">
+      <h4 className="mb-3 text-sm font-medium">
+        Sprints ({project.sprints.length})
+      </h4>
+      {project.sprints.length > 0 ? (
+        <ul className="mb-4 space-y-2">
+          {project.sprints.map((sprint) => (
+            <li
+              key={sprint.id}
+              className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm"
+            >
+              <p className="font-medium">{sprint.name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {new Date(sprint.startTime).toLocaleString()} –{" "}
+                {new Date(sprint.endTime).toLocaleString()}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mb-4 text-sm text-muted-foreground">
+          No sprints have been created for this project yet.
+        </p>
+      )}
+
+      <form
+        className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2"
+        onSubmit={handleSubmit}
+      >
+        <div className="space-y-2 sm:col-span-2">
+          <label
+            htmlFor={`project-${project.id}-sprint-name`}
+            className="text-xs font-medium"
+          >
+            Sprint name
+          </label>
+          <input
+            id={`project-${project.id}-sprint-name`}
+            name="sprintName"
+            type="text"
+            autoComplete="off"
+            placeholder="e.g. Sprint 1"
+            className={inputClassName}
+            required
+            disabled={isSubmitting}
+          />
+        </div>
+        <div className="space-y-2">
+          <label
+            htmlFor={`project-${project.id}-sprint-start`}
+            className="text-xs font-medium"
+          >
+            Start date and time
+          </label>
+          <input
+            id={`project-${project.id}-sprint-start`}
+            name="startTime"
+            type="datetime-local"
+            className={inputClassName}
+            required
+            disabled={isSubmitting}
+          />
+        </div>
+        <div className="space-y-2">
+          <label
+            htmlFor={`project-${project.id}-sprint-end`}
+            className="text-xs font-medium"
+          >
+            End date and time
+          </label>
+          <input
+            id={`project-${project.id}-sprint-end`}
+            name="endTime"
+            type="datetime-local"
+            className={inputClassName}
+            required
+            disabled={isSubmitting}
+          />
+        </div>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive sm:col-span-2">
+            {error}
+          </p>
+        ) : null}
+        {createdSprintName ? (
+          <output className="text-sm text-primary sm:col-span-2">
+            {createdSprintName} was created successfully.
+          </output>
+        ) : null}
+        <div className="sm:col-span-2">
+          <Button type="submit" disabled={isSubmitting}>
+            <Plus aria-hidden="true" />
+            {isSubmitting ? "Creating sprint..." : "Create sprint"}
+          </Button>
+        </div>
+      </form>
+    </section>
   );
 }
 

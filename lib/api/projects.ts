@@ -8,6 +8,16 @@ export type ProjectTeamContext = {
   organizationId: string;
 };
 
+export type Sprint = {
+  id: string;
+  name: string;
+  projectId: string;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -15,9 +25,10 @@ export type Project = {
   createdAt: string;
   updatedAt: string;
   team: ProjectTeamContext;
+  sprints: Sprint[];
 };
 
-export type CreatedProject = Omit<Project, "team">;
+export type CreatedProject = Omit<Project, "team" | "sprints">;
 
 export type ProjectMember = {
   id: string;
@@ -75,7 +86,22 @@ function isProject(value: unknown): value is Project {
     typeof value.teamId === "string" &&
     typeof value.createdAt === "string" &&
     typeof value.updatedAt === "string" &&
-    isProjectTeamContext(value.team)
+    isProjectTeamContext(value.team) &&
+    Array.isArray(value.sprints) &&
+    value.sprints.every(isSprint)
+  );
+}
+
+function isSprint(value: unknown): value is Sprint {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.projectId === "string" &&
+    typeof value.startTime === "string" &&
+    typeof value.endTime === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string"
   );
 }
 
@@ -248,6 +274,34 @@ export async function createProject(
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
   };
+}
+
+export async function createSprint(
+  name: string,
+  projectId: string,
+  startTime: string,
+  endTime: string,
+): Promise<Sprint> {
+  const payload = await requestPayload(
+    "/sprints",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, projectId, startTime, endTime }),
+    },
+    "Sprint creation",
+  );
+  const data = payload.data;
+
+  if (!isRecord(data) || !isSprint(data.sprint)) {
+    throw new ProjectApiError(
+      "The server returned an unexpected sprint creation response.",
+    );
+  }
+
+  return data.sprint;
 }
 
 export async function addProjectMember(
