@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { forwardBackendResponse } from "@/lib/api/backend-response";
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:5000/api/v1"
@@ -16,18 +17,6 @@ const REQUEST_HEADERS_TO_SKIP = new Set([
   "x-forwarded-host",
   "x-forwarded-port",
   "x-forwarded-proto",
-]);
-
-const RESPONSE_HEADERS_TO_SKIP = new Set([
-  "connection",
-  "content-encoding",
-  "content-length",
-  "keep-alive",
-  "set-cookie",
-  "te",
-  "trailer",
-  "transfer-encoding",
-  "upgrade",
 ]);
 
 async function proxyToBackend(
@@ -89,26 +78,7 @@ async function proxyToBackend(
     );
   }
 
-  const responseHeaders = new Headers();
-  for (const [name, value] of backendResponse.headers) {
-    if (!RESPONSE_HEADERS_TO_SKIP.has(name.toLowerCase())) {
-      responseHeaders.append(name, value);
-    }
-  }
-  responseHeaders.set("Cache-Control", "private, no-store");
-
-  for (const cookie of backendResponse.headers.getSetCookie()) {
-    responseHeaders.append(
-      "Set-Cookie",
-      cookie.replace(/;\s*domain=[^;]*/i, ""),
-    );
-  }
-
-  return new Response(backendResponse.body, {
-    status: backendResponse.status,
-    statusText: backendResponse.statusText,
-    headers: responseHeaders,
-  });
+  return forwardBackendResponse(backendResponse);
 }
 
 export const GET = proxyToBackend;

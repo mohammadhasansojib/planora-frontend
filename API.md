@@ -130,6 +130,11 @@ HttpOnly authentication cookies on the frontend host while forwarding them to
 the API server, which is required when frontend and backend use different
 hosts.
 
+The login page shows a demo-login button when the server-only
+`DEMO_LOGIN_EMAIL` and `DEMO_LOGIN_PASSWORD` environment variables are set.
+Use a dedicated demo account with no sensitive data; do not use a personal or
+privileged account.
+
 ---
 
 ## 2.3 Refresh Token

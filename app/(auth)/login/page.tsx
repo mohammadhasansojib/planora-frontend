@@ -27,7 +27,11 @@ export default function LoginPage() {
             Log in to continue to your Planora workspace.
           </p>
         </div>
-        <LoginForm />
+        <LoginForm
+          demoLoginEnabled={Boolean(
+            process.env.DEMO_LOGIN_EMAIL && process.env.DEMO_LOGIN_PASSWORD,
+          )}
+        />
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
           <Link

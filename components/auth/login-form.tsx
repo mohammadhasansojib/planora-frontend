@@ -8,7 +8,7 @@ import { AuthApiError, loginUser } from "@/lib/api/auth";
 const inputClassName =
   "h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition-shadow placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60";
 
-export function LoginForm() {
+export function LoginForm({ demoLoginEnabled }: { demoLoginEnabled: boolean }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +32,47 @@ export function LoginForm() {
         submissionError instanceof AuthApiError
           ? submissionError.message
           : "Login could not be completed. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleDemoLogin() {
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/demo-login", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        let message: string | undefined;
+        try {
+          const payload: unknown = await response.json();
+          if (
+            typeof payload === "object" &&
+            payload !== null &&
+            "message" in payload &&
+            typeof payload.message === "string"
+          ) {
+            message = payload.message;
+          }
+        } catch {
+          message = undefined;
+        }
+        throw new AuthApiError(message ?? "Demo login could not be completed.");
+      }
+
+      router.replace("/");
+      router.refresh();
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof AuthApiError
+          ? submissionError.message
+          : "Demo login could not be completed. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -83,6 +124,17 @@ export function LoginForm() {
       <Button type="submit" className="h-10 w-full" disabled={isSubmitting}>
         {isSubmitting ? "Logging in..." : "Log in"}
       </Button>
+      {demoLoginEnabled ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 w-full"
+          onClick={handleDemoLogin}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Logging in..." : "Continue with demo account"}
+        </Button>
+      ) : null}
     </form>
   );
 }
