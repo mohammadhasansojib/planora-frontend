@@ -11,8 +11,12 @@ export class ApiRequestError extends Error {
   }
 }
 
-function getApiUrl(path: string) {
-  return `${API_BASE_URL}/${path.replace(/^\/+/, "")}`;
+export function getApiUrl(path: string) {
+  const endpoint = path.replace(/^\/+/, "");
+  if (typeof window !== "undefined") {
+    return `/api/backend/${endpoint}`;
+  }
+  return `${API_BASE_URL}/${endpoint}`;
 }
 
 async function refreshSession(): Promise<boolean> {

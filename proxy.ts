@@ -2,53 +2,71 @@ import { errors, jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const guestRoutes = ["/login", "/register"];
-const publicRoutes = ["/payments/result"];
+const COOKIE_NAME = "accessToken";
+const GUEST_ROUTES = ["/login", "/register"] as const;
+const PUBLIC_ROUTES = ["/payments/result"] as const;
 
-async function verifyAccessToken(token: string) {
-  const secret = process.env.ACCESS_TOKEN_SECRET;
-  if (!secret) {
-    throw new Error("ACCESS_TOKEN_SECRET is not configured");
-  }
+// Validate and encode the secret once, at module load.
+const rawSecret = process.env.ACCESS_TOKEN_SECRET;
+if (!rawSecret) {
+  throw new Error("ACCESS_TOKEN_SECRET is not configured");
+}
+const SECRET = new TextEncoder().encode(rawSecret);
+
+async function isValidToken(token: string | undefined): Promise<boolean> {
+  if (!token) return false;
 
   try {
-    await jwtVerify(token, new TextEncoder().encode(secret));
+    await jwtVerify(token, SECRET);
     return true;
   } catch (error) {
-    if (error instanceof errors.JOSEError) {
-      return false;
+    // Unexpected (non-JOSE) errors: log and fail closed instead of 500ing.
+    if (!(error instanceof errors.JOSEError)) {
+      console.error("Unexpected error verifying access token:", error);
     }
-    throw error;
+    return false;
   }
 }
 
+function matchesRoute(pathname: string, route: string): boolean {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  if (publicRoutes.some((route) => pathname === route)) {
+  const { pathname, search } = request.nextUrl;
+
+  if (PUBLIC_ROUTES.some((route) => matchesRoute(pathname, route))) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("accessToken")?.value;
-  const isGuestRoute = guestRoutes.some((r) => pathname.startsWith(r));
-  const isTokenValid = token ? await verifyAccessToken(token) : false;
+  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const isGuestRoute = GUEST_ROUTES.some((route) =>
+    matchesRoute(pathname, route),
+  );
+  const authenticated = await isValidToken(token);
 
   if (isGuestRoute) {
-    if (isTokenValid) {
+    if (authenticated) {
       return NextResponse.redirect(new URL("/", request.url));
     }
 
     const response = NextResponse.next();
-    if (token) {
-      response.cookies.delete("accessToken");
-    }
+    if (token) response.cookies.delete(COOKIE_NAME); // clear stale/invalid token
     return response;
   }
 
-  if (!isTokenValid) {
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    if (token) {
-      response.cookies.delete("accessToken");
+  if (!authenticated) {
+    const loginUrl = new URL("/login", request.url);
+
+    // Preserve the intended destination. The login page must validate that
+    // `next` is a relative path (starts with "/" and not "//") to avoid
+    // open redirects.
+    if (pathname !== "/") {
+      loginUrl.searchParams.set("next", `${pathname}${search}`);
     }
+
+    const response = NextResponse.redirect(loginUrl);
+    if (token) response.cookies.delete(COOKIE_NAME);
     return response;
   }
 
@@ -57,6 +75,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/auth|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\..*).*)",
+    // Skip auth routes, Next internals, and any path with a file extension.
+    "/((?!api/backend|api/auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)",
   ],
 };

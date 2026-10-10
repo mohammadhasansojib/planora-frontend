@@ -124,6 +124,12 @@ access cookie lasts 24 hours and the refresh cookie lasts 7 days. Frontend
 requests that need these cookies must use `credentials: "include"`. Frontend
 JavaScript must not read or persist token values.
 
+Browser API requests are sent through the frontend's same-origin
+`/api/backend/*` route. This allows the frontend to store the backend's
+HttpOnly authentication cookies on the frontend host while forwarding them to
+the API server, which is required when frontend and backend use different
+hosts.
+
 ---
 
 ## 2.3 Refresh Token

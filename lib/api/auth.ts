@@ -1,8 +1,4 @@
-import { apiRequest } from "@/lib/api/client";
-
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:5000/api/v1"
-).replace(/\/+$/, "");
+import { apiRequest, getApiUrl } from "@/lib/api/client";
 
 export type RegisterRequest = {
   username: string;
@@ -93,7 +89,7 @@ async function postAuthJson<T>(
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}/auth/${endpoint}`, {
+    response = await fetch(getApiUrl(`/auth/${endpoint}`), {
       method: "POST",
       credentials: "include",
       headers: {
