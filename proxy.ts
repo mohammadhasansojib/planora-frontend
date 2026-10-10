@@ -85,7 +85,14 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Skip auth routes, Next internals, and any path with a file extension.
-    "/((?!api/backend|api/demo-login|api/auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)",
+    "/",
+    "/home",
+    "/login",
+    "/register",
+    "/organizations/:path*",
+    "/teams/:path*",
+    "/projects/:path*",
+    "/tasks/:path*",
+    "/payments/:path*",
   ],
 };
