@@ -1253,23 +1253,26 @@ The following endpoints expose pagination parameters:
 * `GET /projects`
 * `GET /tasks`
 
-The documented query parameters are:
+`GET /tasks` requires the selected `organizationId` and supports these
+query parameters:
 
 ```text
 page
 limit
-```
-
-`GET /teams` also accepts an optional `organizationId` filter. The teams page
-uses the selected organization and requests 10 teams per page.
-
-Tasks additionally support:
-
-```text
+organizationId
 sortBy
 order
 term
 ```
+
+Task sorting supports `createdAt`, `updatedAt`, and `title`, with `asc` or
+`desc` ordering. Search matches task titles and descriptions. The response
+includes pagination metadata and each task's project and sprint summary.
+Task creation and sprint assignment require membership in the owning
+organization, and a sprint must belong to the task's project.
+
+`GET /teams` also accepts an optional `organizationId` filter. The teams page
+uses the selected organization and requests 10 teams per page.
 
 ### File Uploads
 
