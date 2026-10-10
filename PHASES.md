@@ -380,12 +380,14 @@ GET /payments/callback
 * The bKash callback is an unauthenticated GET browser redirect. The backend
   executes successful payments and redirects to the configured frontend result
   route with the canonical status query value.
+* Show a paginated history of the signed-in user's pending, completed, failed,
+  and cancelled payment attempts.
 
 ### Expected Result
 
 The authenticated frontend can initiate the supported payment flow, redirect
-to the returned bKash URL, and display the appropriate result state on the
-public `/payments/result` route.
+to the returned bKash URL, review payment history, and display the appropriate
+result state on the public `/payments/result` route.
 
 ---
 

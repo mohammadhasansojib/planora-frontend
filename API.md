@@ -1178,6 +1178,59 @@ Failure and cancellation callbacks do not execute the payment. bKash's
 `cancel` callback status is normalized to `cancelled`. A successful callback
 whose execution is not confirmed by bKash is redirected as `failure`.
 
+## 9.3 List User Payments
+
+**GET**
+
+```text
+/payments?page=1&limit=10
+```
+
+### Authentication
+
+```text
+auth: true
+```
+
+Returns the signed-in user's payment attempts, newest first. `page` defaults
+to `1`; `limit` defaults to `10` and cannot exceed `100`. Each record contains
+the bKash payment ID, transaction ID when completed, amount, status
+(`PENDING`, `COMPLETED`, `FAILED`, or `CANCELLED`), and timestamps. Pagination
+metadata is returned alongside the records.
+
+An attempt is recorded as `PENDING` when bKash creates the checkout. Its
+callback updates the attempt to `COMPLETED`, `FAILED`, or `CANCELLED`, so
+failed and cancelled attempts also appear in history.
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Payments retrieved successfully",
+  "statusCode": 200,
+  "data": {
+    "payments": [
+      {
+        "id": "payment-record-id",
+        "paymentId": "bkash-payment-id",
+        "transactionId": null,
+        "amount": "600",
+        "status": "PENDING",
+        "createdAt": "2026-10-10T05:00:00.000Z",
+        "updatedAt": "2026-10-10T05:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 1,
+      "totalPages": 1
+    }
+  }
+}
+```
+
 ---
 
 # 10. Endpoint Summary
@@ -1206,6 +1259,7 @@ whose execution is not confirmed by bKash is redirected as `failure`.
 | Attachment          | POST   | `/tasks/:taskId/attachment`              | Yes  |
 | Comment             | POST   | `/comments`                              | Yes  |
 | Payment             | POST   | `/payments/create-payment`               | Yes  |
+| Payments            | GET    | `/payments`                               | Yes  |
 | Payment Callback    | GET    | `/payments/callback`                     | No   |
 
 ---
