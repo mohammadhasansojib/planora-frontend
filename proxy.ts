@@ -55,7 +55,17 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  if (pathname === "/home") {
+    return authenticated
+      ? NextResponse.redirect(new URL("/", request.url))
+      : NextResponse.next();
+  }
+
   if (!authenticated) {
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/home", request.url));
+    }
+
     const loginUrl = new URL("/login", request.url);
 
     // Preserve the intended destination. The login page must validate that
