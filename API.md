@@ -1142,7 +1142,7 @@ The endpoint returns payment information including a bKash payment URL.
 
 ## 9.2 Payment Callback
 
-**POST**
+**GET**
 
 ```text
 /payments/callback
@@ -1154,17 +1154,29 @@ The endpoint returns payment information including a bKash payment URL.
 auth: false
 ```
 
-> The backend documentation notes that this is currently unauthenticated and is expected to become an authenticated route when integrated with the frontend.
+The payment provider calls this browser-redirect endpoint; it cannot use the
+user's frontend authentication session.
 
-### Request Body
+### Query Parameters
 
-The documented request body is empty.
+The provider supplies payment results, including `status`, `paymentID`, and
+the backend-provided `userId` for successful callbacks.
 
 ### Response
 
-The backend redirects to the frontend payment-success page.
+The backend executes and persists a successful payment only after bKash
+confirms the transaction, then redirects the browser to the configured
+frontend payment result route with one canonical query value:
 
-The exact frontend redirect URL is not defined in the current API documentation.
+```text
+/payments/result?status=success
+/payments/result?status=failure
+/payments/result?status=cancelled
+```
+
+Failure and cancellation callbacks do not execute the payment. bKash's
+`cancel` callback status is normalized to `cancelled`. A successful callback
+whose execution is not confirmed by bKash is redirected as `failure`.
 
 ---
 
@@ -1194,7 +1206,7 @@ The exact frontend redirect URL is not defined in the current API documentation.
 | Attachment          | POST   | `/tasks/:taskId/attachment`              | Yes  |
 | Comment             | POST   | `/comments`                              | Yes  |
 | Payment             | POST   | `/payments/create-payment`               | Yes  |
-| Payment Callback    | POST   | `/payments/callback`                     | No   |
+| Payment Callback    | GET    | `/payments/callback`                     | No   |
 
 ---
 

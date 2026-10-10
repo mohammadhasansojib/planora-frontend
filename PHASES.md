@@ -366,7 +366,7 @@ Implement the documented payment flow.
 
 ```text
 POST /payments/create-payment
-POST /payments/callback
+GET /payments/callback
 ```
 
 ### Tasks
@@ -375,10 +375,11 @@ POST /payments/callback
 * Connect payment creation API.
 * Handle returned payment information.
 * Redirect the user to the returned payment URL.
-* Handle payment success state.
-* Handle payment failure state.
-* Handle payment cancellation state.
-* Implement frontend callback/success routing based on the final backend behavior.
+* Handle payment success, failure, and cancellation on one result route:
+  `/payments/result?status=success|failure|cancelled`.
+* The bKash callback is an unauthenticated GET browser redirect. The backend
+  executes successful payments and redirects to the configured frontend result
+  route with the canonical status query value.
 
 ### Expected Result
 
