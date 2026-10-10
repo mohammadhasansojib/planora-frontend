@@ -51,6 +51,8 @@ to a separately deployed backend API.
 | `/projects`, `/tasks` | Project and task management | Sign in required |
 | `/payments` | bKash checkout and payment history | Sign in required |
 | `/payments/result` | Payment return status | Public |
+| `/not-found` | Not Found |
+| `/error` | Error Page |
 
 Unauthenticated visitors to `/` are redirected to `/home`; signed-in visitors
 to `/home` are redirected to the dashboard. Unknown routes display a custom
