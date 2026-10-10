@@ -227,6 +227,7 @@ Implement project management.
 ```text
 POST /projects
 POST /projects/:projectId/members
+GET /projects/:projectId/members
 GET /projects
 ```
 
@@ -240,6 +241,7 @@ GET /projects
 * Build project details/context.
 * Build project member interface.
 * Add project member form.
+* Display the project's current member roster.
 * Handle loading, empty, success, and error states.
 
 ### Expected Result

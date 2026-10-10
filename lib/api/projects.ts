@@ -1,47 +1,56 @@
 import { apiRequest } from "@/lib/api/client";
 
-export type Team = {
+export type ProjectRole = "MEMBER" | "MANAGER";
+
+export type ProjectTeamContext = {
   id: string;
   name: string;
   organizationId: string;
-  createdAt: string;
-  updatedAt: string;
 };
 
-export type TeamRole = "MEMBER" | "MANAGER";
-
-export type TeamMember = {
+export type Project = {
   id: string;
+  name: string;
   teamId: string;
+  createdAt: string;
+  updatedAt: string;
+  team: ProjectTeamContext;
+};
+
+export type CreatedProject = Omit<Project, "team">;
+
+export type ProjectMember = {
+  id: string;
+  projectId: string;
   userId: string;
-  role: TeamRole;
+  role: ProjectRole;
   createdAt: string;
   updatedAt: string;
 };
 
-export type TeamMemberWithUser = TeamMember & {
+export type ProjectMemberWithUser = ProjectMember & {
   user: {
     username: string;
     email: string;
   };
 };
 
-export type TeamPagination = {
+export type ProjectPagination = {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
 };
 
-export type TeamPage = {
-  teams: Team[];
-  pagination: TeamPagination;
+export type ProjectPage = {
+  projects: Project[];
+  pagination: ProjectPagination;
 };
 
-export class TeamApiError extends Error {
+export class ProjectApiError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "TeamApiError";
+    this.name = "ProjectApiError";
   }
 }
 
@@ -49,18 +58,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isTeam(value: unknown): value is Team {
+function isProjectTeamContext(value: unknown): value is ProjectTeamContext {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
     typeof value.name === "string" &&
-    typeof value.organizationId === "string" &&
-    typeof value.createdAt === "string" &&
-    typeof value.updatedAt === "string"
+    typeof value.organizationId === "string"
   );
 }
 
-function isTeamPagination(value: unknown): value is TeamPagination {
+function isProject(value: unknown): value is Project {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.teamId === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string" &&
+    isProjectTeamContext(value.team)
+  );
+}
+
+function isProjectPagination(value: unknown): value is ProjectPagination {
   return (
     isRecord(value) &&
     typeof value.page === "number" &&
@@ -70,11 +89,11 @@ function isTeamPagination(value: unknown): value is TeamPagination {
   );
 }
 
-function isTeamMember(value: unknown): value is TeamMember {
+function isProjectMember(value: unknown): value is ProjectMember {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
-    typeof value.teamId === "string" &&
+    typeof value.projectId === "string" &&
     typeof value.userId === "string" &&
     (value.role === "MEMBER" || value.role === "MANAGER") &&
     typeof value.createdAt === "string" &&
@@ -82,14 +101,16 @@ function isTeamMember(value: unknown): value is TeamMember {
   );
 }
 
-function isTeamMemberWithUser(value: unknown): value is TeamMemberWithUser {
+function isProjectMemberWithUser(
+  value: unknown,
+): value is ProjectMemberWithUser {
   if (!isRecord(value)) {
     return false;
   }
 
   const user = value.user;
   return (
-    isTeamMember(value) &&
+    isProjectMember(value) &&
     isRecord(user) &&
     typeof user.username === "string" &&
     typeof user.email === "string"
@@ -117,7 +138,7 @@ async function requestPayload(
   try {
     response = await apiRequest(path, init);
   } catch (error) {
-    throw new TeamApiError(
+    throw new ProjectApiError(
       error instanceof Error
         ? error.message
         : `${operation} could not be completed. Please try again.`,
@@ -128,20 +149,20 @@ async function requestPayload(
   try {
     payload = await response.json();
   } catch {
-    throw new TeamApiError(
+    throw new ProjectApiError(
       `The server returned an unreadable ${operation.toLowerCase()} response.`,
     );
   }
 
   if (!response.ok) {
-    throw new TeamApiError(
+    throw new ProjectApiError(
       getMessage(payload) ??
         `${operation} failed (HTTP ${response.status}). Please try again.`,
     );
   }
 
   if (!isRecord(payload) || payload.success !== true) {
-    throw new TeamApiError(
+    throw new ProjectApiError(
       getMessage(payload) ??
         `The server returned an unexpected ${operation.toLowerCase()} response.`,
     );
@@ -150,88 +171,92 @@ async function requestPayload(
   return payload;
 }
 
-export async function getTeams(
+export async function getProjects(
   organizationId: string,
   page: number,
   limit: number,
-): Promise<TeamPage> {
+): Promise<ProjectPage> {
   const query = new URLSearchParams({
     organizationId,
     page: String(page),
     limit: String(limit),
   });
   const payload = await requestPayload(
-    `/teams?${query.toString()}`,
+    `/projects?${query.toString()}`,
     { method: "GET" },
-    "Team loading",
+    "Project loading",
   );
   const data = payload.data;
 
   if (
     !isRecord(data) ||
-    !Array.isArray(data.teams) ||
-    !data.teams.every(isTeam) ||
-    !isTeamPagination(data.pagination)
+    !Array.isArray(data.projects) ||
+    !data.projects.every(isProject) ||
+    !isProjectPagination(data.pagination)
   ) {
-    throw new TeamApiError("The server returned an unexpected team list.");
+    throw new ProjectApiError(
+      "The server returned an unexpected project list.",
+    );
   }
 
   return {
-    teams: data.teams,
+    projects: data.projects,
     pagination: data.pagination,
   };
 }
 
-export async function getAllTeamsInOrganization(
-  organizationId: string,
-): Promise<Team[]> {
-  const firstPage = await getTeams(organizationId, 1, 100);
-  if (firstPage.pagination.totalPages <= 1) {
-    return firstPage.teams;
-  }
-
-  const remainingPages = await Promise.all(
-    Array.from({ length: firstPage.pagination.totalPages - 1 }, (_, index) =>
-      getTeams(organizationId, index + 2, 100),
-    ),
-  );
-
-  return [...firstPage.teams, ...remainingPages.flatMap(({ teams }) => teams)];
-}
-
-export async function createTeam(
+export async function createProject(
   name: string,
-  organizationId: string,
-): Promise<Team> {
+  teamId: string,
+): Promise<CreatedProject> {
   const payload = await requestPayload(
-    "/teams",
+    "/projects",
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, organizationId }),
+      body: JSON.stringify({ name, teamId }),
     },
-    "Team creation",
+    "Project creation",
   );
   const data = payload.data;
 
-  if (!isRecord(data) || !isTeam(data.team)) {
-    throw new TeamApiError(
-      "The server returned an unexpected team creation response.",
+  if (!isRecord(data) || !isRecord(data.project)) {
+    throw new ProjectApiError(
+      "The server returned an unexpected project creation response.",
     );
   }
 
-  return data.team;
+  const project = data.project;
+  if (
+    typeof project.id !== "string" ||
+    typeof project.name !== "string" ||
+    typeof project.teamId !== "string" ||
+    typeof project.createdAt !== "string" ||
+    typeof project.updatedAt !== "string"
+  ) {
+    throw new ProjectApiError(
+      "The server returned an unexpected project creation response.",
+    );
+  }
+
+  return {
+    id: project.id,
+    name: project.name,
+    teamId: project.teamId,
+    createdAt: project.createdAt,
+    updatedAt: project.updatedAt,
+  };
 }
 
-export async function addTeamMember(
-  teamId: string,
+export async function addProjectMember(
+  projectId: string,
   userId: string,
-  role: TeamRole,
-): Promise<TeamMember> {
+  role: ProjectRole,
+): Promise<ProjectMember> {
   const payload = await requestPayload(
-    `/teams/${encodeURIComponent(teamId)}/members`,
+    `/projects/${encodeURIComponent(projectId)}/members`,
     {
       method: "POST",
       headers: {
@@ -239,36 +264,36 @@ export async function addTeamMember(
       },
       body: JSON.stringify({ userId, role }),
     },
-    "Adding team member",
+    "Adding project member",
   );
   const data = payload.data;
 
-  if (!isRecord(data) || !isTeamMember(data.member)) {
-    throw new TeamApiError(
-      "The server returned an unexpected team member response.",
+  if (!isRecord(data) || !isProjectMember(data.member)) {
+    throw new ProjectApiError(
+      "The server returned an unexpected project member response.",
     );
   }
 
   return data.member;
 }
 
-export async function getTeamMembers(
-  teamId: string,
-): Promise<TeamMemberWithUser[]> {
+export async function getProjectMembers(
+  projectId: string,
+): Promise<ProjectMemberWithUser[]> {
   const payload = await requestPayload(
-    `/teams/${encodeURIComponent(teamId)}/members`,
+    `/projects/${encodeURIComponent(projectId)}/members`,
     { method: "GET" },
-    "Team member loading",
+    "Project member loading",
   );
   const data = payload.data;
 
   if (
     !isRecord(data) ||
     !Array.isArray(data.members) ||
-    !data.members.every(isTeamMemberWithUser)
+    !data.members.every(isProjectMemberWithUser)
   ) {
-    throw new TeamApiError(
-      "The server returned an unexpected team member list.",
+    throw new ProjectApiError(
+      "The server returned an unexpected project member list.",
     );
   }
 

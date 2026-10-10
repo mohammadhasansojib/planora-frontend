@@ -592,6 +592,9 @@ auth: true
 }
 ```
 
+The signed-in user must belong to the organization that owns the selected
+team.
+
 ### Response
 
 ```json
@@ -636,6 +639,9 @@ auth: true
 }
 ```
 
+The signed-in user and selected user must belong to the project's organization.
+Supported roles are `MEMBER` and `MANAGER`.
+
 ### Response
 
 ```json
@@ -676,13 +682,14 @@ auth: true
 
 | Parameter | Description                 |
 | --------- | --------------------------- |
-| `page`    | Page number                 |
-| `limit`   | Number of projects per page |
+| `page`    | Page number (default: 1)    |
+| `limit`   | Projects per page (default: 10, maximum: 100) |
+| `organizationId` | Optional organization filter; the signed-in user must belong to it |
 
 Example:
 
 ```text
-/projects?page=1&limit=10
+/projects?page=1&limit=10&organizationId=organization-id
 ```
 
 ### Response
@@ -690,8 +697,8 @@ Example:
 ```json
 {
   "success": true,
-  "message": "Retrived all projects successfully",
-  "statusCode": 201,
+  "message": "Retrieved all projects successfully",
+  "statusCode": 200,
   "data": {
     "projects": [
       {
@@ -699,12 +706,37 @@ Example:
         "name": "My Second Project",
         "teamId": "team-id",
         "createdAt": "2026-09-05T10:27:04.447Z",
-        "updatedAt": "2026-09-05T10:27:04.447Z"
+        "updatedAt": "2026-09-05T10:27:04.447Z",
+        "team": {
+          "id": "team-id",
+          "name": "Design",
+          "organizationId": "organization-id"
+        }
       }
-    ]
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 1,
+      "totalPages": 1
+    }
   }
 }
 ```
+
+---
+
+## 5.4 Get Project Members
+
+**GET**
+
+```text
+/projects/:projectId/members
+```
+
+The signed-in user must belong to the project's organization. The response
+includes each project's member role, join date, username, and email. The
+Projects page displays the roster and refreshes it after a member is added.
 
 ---
 
