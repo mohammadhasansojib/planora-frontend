@@ -6,7 +6,9 @@ import {
   Plus,
   RefreshCw,
   Search,
+  X,
 } from "lucide-react";
+import Image from "next/image";
 import { type FormEvent, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { useOrganizations } from "@/components/organizations/organization-provider";
@@ -22,8 +24,10 @@ import {
   type SortOrder,
   type Subtask,
   type Task,
+  type TaskAttachment,
   type TaskComment,
   type TaskSortField,
+  uploadTaskAttachment,
 } from "@/lib/api/tasks";
 
 const PAGE_SIZE = 10;
@@ -510,6 +514,26 @@ function TaskManagementForOrganization({
                           }}
                         />
 
+                        <AttachmentSection
+                          taskId={task.id}
+                          attachments={task.attachments}
+                          onAttachmentUploaded={(attachment) => {
+                            setTasks((currentTasks) =>
+                              currentTasks.map((currentTask) =>
+                                currentTask.id === task.id
+                                  ? {
+                                      ...currentTask,
+                                      attachments: [
+                                        ...currentTask.attachments,
+                                        attachment,
+                                      ],
+                                    }
+                                  : currentTask,
+                              ),
+                            );
+                          }}
+                        />
+
                         <CommentSection
                           taskId={task.id}
                           enabled={openTaskDetails.has(task.id)}
@@ -836,6 +860,189 @@ function SubtaskSection({
           </Button>
         </div>
       </form>
+    </section>
+  );
+}
+
+function AttachmentSection({
+  taskId,
+  attachments,
+  onAttachmentUploaded,
+}: {
+  taskId: string;
+  attachments: TaskAttachment[];
+  onAttachmentUploaded: (attachment: TaskAttachment) => void;
+}) {
+  const [selectedAttachment, setSelectedAttachment] =
+    useState<TaskAttachment | null>(null);
+  const [dialogElement, setDialogElement] = useState<HTMLDialogElement | null>(
+    null,
+  );
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dialogElement) {
+      return;
+    }
+
+    if (selectedAttachment && !dialogElement.open) {
+      dialogElement.showModal();
+    } else if (!selectedAttachment && dialogElement.open) {
+      dialogElement.close();
+    }
+  }, [dialogElement, selectedAttachment]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setUploadedFileName(null);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const file = formData.get("attachment");
+    if (!(file instanceof File) || file.size === 0) {
+      setError("Choose an image to upload.");
+      return;
+    }
+
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!["jpg", "jpeg", "png", "webp"].includes(extension ?? "")) {
+      setError("Choose a JPG, JPEG, PNG, or WEBP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Images must be 5 MB or smaller.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const attachment = await uploadTaskAttachment({ taskId, file });
+      onAttachmentUploaded(attachment);
+      setUploadedFileName(file.name);
+      form.reset();
+    } catch (uploadError) {
+      setError(
+        errorMessage(
+          uploadError,
+          "The attachment could not be uploaded. Please try again.",
+        ),
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  return (
+    <section aria-label="Attachments" className="mt-4 border-t pt-4">
+      <h4 className="text-sm font-medium">
+        Attachments ({attachments.length})
+      </h4>
+      {attachments.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {attachments.map((attachment) => (
+            <li
+              key={attachment.id}
+              className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/50 px-3 py-2"
+            >
+              <button
+                type="button"
+                className="break-all text-left text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => setSelectedAttachment(attachment)}
+              >
+                {attachment.originalName}
+              </button>
+              <time
+                dateTime={attachment.createdAt}
+                className="text-xs text-muted-foreground"
+              >
+                {formatDate(attachment.createdAt)}
+              </time>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">
+          No attachments have been added.
+        </p>
+      )}
+
+      <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
+        <label className="space-y-2 sm:col-span-2">
+          <span className="text-xs font-medium">Upload an image</span>
+          <input
+            name="attachment"
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            className="block w-full text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-2 file:text-sm file:font-medium"
+            disabled={isUploading}
+          />
+          <span className="block text-xs text-muted-foreground">
+            JPG, JPEG, PNG, or WEBP · 5 MB maximum
+          </span>
+        </label>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive sm:col-span-2">
+            {error}
+          </p>
+        ) : null}
+        {uploadedFileName ? (
+          <output className="text-sm text-primary sm:col-span-2">
+            “{uploadedFileName}” was uploaded successfully.
+          </output>
+        ) : null}
+        <div className="sm:col-span-2">
+          <Button type="submit" variant="outline" disabled={isUploading}>
+            {isUploading ? "Uploading…" : "Upload attachment"}
+          </Button>
+        </div>
+      </form>
+      <dialog
+        ref={setDialogElement}
+        aria-labelledby="attachment-dialog-title"
+        className="m-auto max-h-[90dvh] w-[min(92vw,64rem)] max-w-none overflow-y-auto rounded-xl border bg-background p-0 text-foreground shadow-xl backdrop:bg-black/70"
+        onClose={() => setSelectedAttachment(null)}
+      >
+        {selectedAttachment ? (
+          <div className="p-4 sm:p-5">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <h4
+                id="attachment-dialog-title"
+                className="break-all text-base font-semibold"
+              >
+                {selectedAttachment.originalName}
+              </h4>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Close attachment preview"
+                onClick={() => setSelectedAttachment(null)}
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </div>
+            <div className="relative h-[min(72dvh,48rem)] w-full">
+              <Image
+                src={selectedAttachment.fileURL}
+                alt={selectedAttachment.originalName}
+                fill
+                sizes="(max-width: 768px) 92vw, 64rem"
+                unoptimized
+                className="rounded-md object-contain"
+              />
+            </div>
+            <time
+              dateTime={selectedAttachment.createdAt}
+              className="mt-3 block text-right text-xs text-muted-foreground"
+            >
+              Uploaded {formatDate(selectedAttachment.createdAt)}
+            </time>
+          </div>
+        ) : null}
+      </dialog>
     </section>
   );
 }

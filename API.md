@@ -1032,6 +1032,7 @@ attachment: <file>
       "id": "attachment-id",
       "taskId": "task-id",
       "userId": "user-id",
+      "originalName": "design-mockup.png",
       "fileURL": "https://example.com/file.png",
       "createdAt": "2026-09-11T14:47:43.383Z",
       "updatedAt": "2026-09-11T14:47:43.383Z"
@@ -1294,8 +1295,13 @@ POST /tasks/:taskId/attachment
 ```
 
 The request contains a file under the `attachment` field.
+Use `multipart/form-data`; supported images are JPG, JPEG, PNG, and WEBP up to
+5 MB. The signed-in user must belong to the task's organization.
 
-The frontend should use an appropriate multipart form request for this endpoint.
+`GET /tasks` includes each task's attachments, ordered by creation time. Upload
+responses include the original filename, attachment URL, and metadata.
+
+The frontend submits multipart form data and opens image previews in a modal.
 
 ### Payments
 

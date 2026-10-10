@@ -33,6 +33,16 @@ export type TaskComment = {
   };
 };
 
+export type TaskAttachment = {
+  id: string;
+  taskId: string;
+  userId: string;
+  originalName: string;
+  fileURL: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Task = {
   id: string;
   projectId: string;
@@ -44,6 +54,7 @@ export type Task = {
   project: TaskProject;
   sprint: TaskSprint | null;
   subtasks: Subtask[];
+  attachments: TaskAttachment[];
 };
 
 export type TaskSortField = "createdAt" | "updatedAt" | "title";
@@ -116,6 +127,19 @@ function isTaskComment(value: unknown): value is TaskComment {
   );
 }
 
+function isTaskAttachment(value: unknown): value is TaskAttachment {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.taskId === "string" &&
+    typeof value.userId === "string" &&
+    typeof value.originalName === "string" &&
+    typeof value.fileURL === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string"
+  );
+}
+
 function isTask(value: unknown): value is Task {
   return (
     isRecord(value) &&
@@ -129,7 +153,9 @@ function isTask(value: unknown): value is Task {
     isTaskProject(value.project) &&
     (value.sprint === null || isTaskSprint(value.sprint)) &&
     Array.isArray(value.subtasks) &&
-    value.subtasks.every(isSubtask)
+    value.subtasks.every(isSubtask) &&
+    Array.isArray(value.attachments) &&
+    value.attachments.every(isTaskAttachment)
   );
 }
 
@@ -365,4 +391,30 @@ export async function createTaskComment(input: {
   }
 
   return data.comment;
+}
+
+export async function uploadTaskAttachment(input: {
+  taskId: string;
+  file: File;
+}): Promise<TaskAttachment> {
+  const formData = new FormData();
+  formData.append("attachment", input.file);
+
+  const payload = await requestPayload(
+    `/tasks/${encodeURIComponent(input.taskId)}/attachment`,
+    {
+      method: "POST",
+      body: formData,
+    },
+    "Attachment upload",
+  );
+  const data = payload.data;
+
+  if (!isRecord(data) || !isTaskAttachment(data.attachment)) {
+    throw new TaskApiError(
+      "The server returned an unexpected attachment upload response.",
+    );
+  }
+
+  return data.attachment;
 }
