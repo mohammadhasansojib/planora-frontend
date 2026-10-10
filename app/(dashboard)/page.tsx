@@ -3,6 +3,7 @@ import {
   BriefcaseBusiness,
   Building2,
   CheckSquare2,
+  CreditCard,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -33,6 +34,12 @@ const workspaceLinks = [
     description: "Keep track of the work that needs to get done.",
     href: "/tasks",
     icon: CheckSquare2,
+  },
+  {
+    title: "Payments",
+    description: "Complete the configured bKash payment.",
+    href: "/payments",
+    icon: CreditCard,
   },
 ];
 

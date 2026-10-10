@@ -383,7 +383,9 @@ GET /payments/callback
 
 ### Expected Result
 
-The frontend can initiate the supported payment flow and display the appropriate payment state.
+The authenticated frontend can initiate the supported payment flow, redirect
+to the returned bKash URL, and display the appropriate result state on the
+public `/payments/result` route.
 
 ---
 

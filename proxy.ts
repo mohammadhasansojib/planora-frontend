@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 const guestRoutes = ["/login", "/register"];
+const publicRoutes = ["/payments/result"];
 
 async function verifyAccessToken(token: string) {
   const secret = process.env.ACCESS_TOKEN_SECRET;
@@ -23,6 +24,10 @@ async function verifyAccessToken(token: string) {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (publicRoutes.some((route) => pathname === route)) {
+    return NextResponse.next();
+  }
+
   const token = request.cookies.get("accessToken")?.value;
   const isGuestRoute = guestRoutes.some((r) => pathname.startsWith(r));
   const isTokenValid = token ? await verifyAccessToken(token) : false;

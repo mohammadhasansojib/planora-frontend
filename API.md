@@ -1317,11 +1317,15 @@ The frontend submits multipart form data and opens image previews in a modal.
 
 ### Payments
 
-The payment flow currently returns a `bkashURL`.
+The authenticated Payments page starts checkout with
+`POST /payments/create-payment` and redirects the browser to the `bkashURL`
+returned in `data`. The current backend checkout amount is 600 BDT; the
+frontend does not choose or submit the amount.
 
-The frontend should use the returned payment information rather than constructing bKash URLs itself.
-
-The exact frontend success/cancellation/failure routing should be finalized when the payment integration is implemented.
+After checkout, the backend redirects to the public frontend route
+`/payments/result?status=success|failure|cancelled`. The page displays the
+corresponding result, and only successful payments return to the dashboard;
+failure, cancellation, and unknown results provide a route back to Payments.
 
 ---
 

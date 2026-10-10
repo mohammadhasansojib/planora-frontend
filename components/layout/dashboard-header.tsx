@@ -15,6 +15,7 @@ const titlesByPath: Record<string, string> = {
   "/teams": "Teams",
   "/projects": "Projects",
   "/tasks": "Tasks",
+  "/payments": "Payments",
 };
 
 export function DashboardHeader() {
