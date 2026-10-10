@@ -14,9 +14,11 @@ import { Button } from "@/components/ui/button";
 import { getProjects, type Project } from "@/lib/api/projects";
 import {
   assignTaskToSprint,
+  createSubtask,
   createTask,
   getTasks,
   type SortOrder,
+  type Subtask,
   type Task,
   type TaskSortField,
 } from "@/lib/api/tasks";
@@ -468,6 +470,26 @@ function TaskManagementForOrganization({
                           </div>
                         </dl>
 
+                        <SubtaskSection
+                          taskId={task.id}
+                          subtasks={task.subtasks}
+                          onSubtaskCreated={(subtask) => {
+                            setTasks((currentTasks) =>
+                              currentTasks.map((currentTask) =>
+                                currentTask.id === task.id
+                                  ? {
+                                      ...currentTask,
+                                      subtasks: [
+                                        ...currentTask.subtasks,
+                                        subtask,
+                                      ],
+                                    }
+                                  : currentTask,
+                              ),
+                            );
+                          }}
+                        />
+
                         <div className="mt-4 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-end">
                           <label className="flex-1 space-y-2">
                             <span className="text-xs font-medium">
@@ -675,5 +697,120 @@ function TaskManagementForOrganization({
         </div>
       )}
     </div>
+  );
+}
+
+function SubtaskSection({
+  taskId,
+  subtasks,
+  onSubtaskCreated,
+}: {
+  taskId: string;
+  subtasks: Subtask[];
+  onSubtaskCreated: (subtask: Subtask) => void;
+}) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [createdTitle, setCreatedTitle] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setCreatedTitle(null);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const title = String(formData.get("subtaskTitle") ?? "").trim();
+    const description = String(formData.get("subtaskDescription") ?? "").trim();
+    if (!title) {
+      setError("Enter a subtask title.");
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const subtask = await createSubtask({ taskId, title, description });
+      onSubtaskCreated(subtask);
+      setCreatedTitle(subtask.title);
+      form.reset();
+    } catch (createError) {
+      setError(
+        errorMessage(
+          createError,
+          "The subtask could not be created. Please try again.",
+        ),
+      );
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  return (
+    <section aria-label="Subtasks" className="mt-4 border-t pt-4">
+      <h4 className="text-sm font-medium">Subtasks ({subtasks.length})</h4>
+      {subtasks.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {subtasks.map((subtask) => (
+            <li key={subtask.id} className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-sm font-medium">{subtask.title}</p>
+              {subtask.description ? (
+                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                  {subtask.description}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">
+          No subtasks have been added.
+        </p>
+      )}
+
+      <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
+        <label className="space-y-2 sm:col-span-2">
+          <span className="text-xs font-medium">Subtask title</span>
+          <input
+            name="subtaskTitle"
+            type="text"
+            className={inputClassName}
+            maxLength={200}
+            required
+            disabled={isCreating}
+          />
+        </label>
+        <label className="space-y-2 sm:col-span-2">
+          <span className="text-xs font-medium">
+            Description{" "}
+            <span className="font-normal text-muted-foreground">
+              (optional)
+            </span>
+          </span>
+          <textarea
+            name="subtaskDescription"
+            rows={2}
+            maxLength={2000}
+            className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition-shadow placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isCreating}
+          />
+        </label>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive sm:col-span-2">
+            {error}
+          </p>
+        ) : null}
+        {createdTitle ? (
+          <output className="text-sm text-primary sm:col-span-2">
+            “{createdTitle}” was added successfully.
+          </output>
+        ) : null}
+        <div className="sm:col-span-2">
+          <Button type="submit" variant="outline" disabled={isCreating}>
+            <Plus aria-hidden="true" />
+            {isCreating ? "Adding subtask…" : "Add subtask"}
+          </Button>
+        </div>
+      </form>
+    </section>
   );
 }

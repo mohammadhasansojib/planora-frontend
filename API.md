@@ -1271,6 +1271,11 @@ includes pagination metadata and each task's project and sprint summary.
 Task creation and sprint assignment require membership in the owning
 organization, and a sprint must belong to the task's project.
 
+Task results include their subtasks. `POST /tasks/:taskId/subtasks` accepts a
+required title (maximum 200 characters) and an optional description (maximum
+2000 characters). Creating a subtask requires membership in the task's
+organization; the response returns the created subtask.
+
 `GET /teams` also accepts an optional `organizationId` filter. The teams page
 uses the selected organization and requests 10 teams per page.
 

@@ -12,6 +12,15 @@ export type TaskSprint = {
   endTime: string;
 };
 
+export type Subtask = {
+  id: string;
+  title: string;
+  description: string | null;
+  taskId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Task = {
   id: string;
   projectId: string;
@@ -22,6 +31,7 @@ export type Task = {
   updatedAt: string;
   project: TaskProject;
   sprint: TaskSprint | null;
+  subtasks: Subtask[];
 };
 
 export type TaskSortField = "createdAt" | "updatedAt" | "title";
@@ -68,6 +78,18 @@ function isTaskSprint(value: unknown): value is TaskSprint {
   );
 }
 
+function isSubtask(value: unknown): value is Subtask {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.title === "string" &&
+    (typeof value.description === "string" || value.description === null) &&
+    typeof value.taskId === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string"
+  );
+}
+
 function isTask(value: unknown): value is Task {
   return (
     isRecord(value) &&
@@ -79,7 +101,9 @@ function isTask(value: unknown): value is Task {
     typeof value.createdAt === "string" &&
     typeof value.updatedAt === "string" &&
     isTaskProject(value.project) &&
-    (value.sprint === null || isTaskSprint(value.sprint))
+    (value.sprint === null || isTaskSprint(value.sprint)) &&
+    Array.isArray(value.subtasks) &&
+    value.subtasks.every(isSubtask)
   );
 }
 
@@ -239,4 +263,34 @@ export async function assignTaskToSprint(
   }
 
   return data.task;
+}
+
+export async function createSubtask(input: {
+  taskId: string;
+  title: string;
+  description: string;
+}): Promise<Subtask> {
+  const payload = await requestPayload(
+    `/tasks/${encodeURIComponent(input.taskId)}/subtasks`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title: input.title,
+        description: input.description,
+      }),
+    },
+    "Subtask creation",
+  );
+  const data = payload.data;
+
+  if (!isRecord(data) || !isSubtask(data.subtask)) {
+    throw new TaskApiError(
+      "The server returned an unexpected subtask creation response.",
+    );
+  }
+
+  return data.subtask;
 }
